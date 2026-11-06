@@ -12,39 +12,103 @@ import time
 import statistics
 import matplotlib.pyplot as plt
 
-random.seed(12345)
-
-def programacion_dinamica(monedas):
+def resolver(monedas):
     n = len(monedas)
     if n == 0:
-        return 0
+        return [], 0, 0
 
-    dp = [[0] * n for _ in range(n)]
 
+    opt = [[0] * n for _ in range(n)]
+
+    # Caso base queda una sola moneda
     for i in range(n):
-        dp[i][i] = monedas[i]
+        opt[i][i] = monedas[i]
 
-    for longitud in range(2, n + 1):
-        for i in range(n - longitud + 1):
-            j = i + longitud - 1
+    for largo in range(2, n + 1):
+        for i in range(n - largo + 1):
+            j = i + largo - 1
 
-            mateo_izq = monedas[i + 1] if i + 1 <= j else 0
-            mateo_der = monedas[j]
-            if mateo_izq >= mateo_der:
-                izquierda = monedas[i] + (dp[i + 2][j] if i + 2 <= j else 0)
+            # sophia toma la moneda izquierda
+            if monedas[i + 1] >= monedas[j]:
+                if i + 2 <= j:
+                    futuro_izq = opt[i + 2][j]
+                else:
+                    futuro_izq = 0
             else:
-                izquierda = monedas[i] + (dp[i + 1][j - 1] if i + 1 <= j - 1 else 0)
+                if i + 1 <= j - 1:
+                    futuro_izq = opt[i + 1][j - 1]  
+                else:
+                    futuro_izq = 0
+            izq = monedas[i] + futuro_izq
 
-            mateo_izq = monedas[i]
-            mateo_der = monedas[j - 1] if j - 1 >= i else 0
-            if mateo_izq >= mateo_der:
-                derecha = monedas[j] + (dp[i + 1][j - 1] if i + 1 <= j - 1 else 0)
+            # sophia toma la moneda derecha
+            if monedas[i] >= monedas[j - 1]:
+                if i + 1 <= j - 1:
+                    futuro_der = opt[i + 1][j - 1]  
+                else:
+                    futuro_der = 0
             else:
-                derecha = monedas[j] + (dp[i][j - 2] if i <= j - 2 else 0)
+                if i <= j - 2:
+                    futuro_der = opt[i][j - 2]
+                else:
+                    futuro_der = 0
+            der = monedas[j] + futuro_der
 
-            dp[i][j] = max(izquierda, derecha)
+            # en caso de empate se elige el extremo izquierdo
+            if izq >= der:
+                opt[i][j] = izq
+            else:
+                opt[i][j] = der
 
-    return dp[0][n - 1]
+    return reconstruir_elecciones(opt, monedas)
+
+def reconstruir_elecciones(opt, monedas):
+    n = len(monedas)
+    decisiones = []
+    i = 0
+    j = n - 1
+
+    ganancia_mateo = 0
+
+    while i <= j:
+        if i == j:
+            # Caso base: queda unicamente esa moneda
+            decisiones.append(f"Sophia toma la izquierda ({monedas[i]})")
+            break
+
+        # uso alternativa de tomar la izquierda para deducir la decisión
+        if monedas[i + 1] >= monedas[j]:
+            if i + 2 <= j:
+                futuro_izq = opt[i + 2][j]
+            else:
+                futuro_izq = 0
+        else:
+            if i + 1 <= j - 1:
+                futuro_izq = opt[i + 1][j - 1]  
+            else:
+                futuro_izq = 0
+        valor_si_izq = monedas[i] + futuro_izq
+
+        # Si el valor calculado coincide con la matriz, Sophia eligio la izquierda
+        if opt[i][j] == valor_si_izq:
+            decisiones.append(f"Sophia toma la izquierda ({monedas[i]})")
+            i += 1
+        else:
+            decisiones.append(f"Sophia toma la derecha ({monedas[j]})")
+            j -= 1
+
+        # Turno de Mateo (Estrategia Greedy)
+        if i <= j:
+            if monedas[i] >= monedas[j]:
+                decisiones.append(f"Mateo toma la izquierda ({monedas[i]})")
+                ganancia_mateo += monedas[i]
+                i += 1
+            else:
+                decisiones.append(f"Mateo toma la derecha ({monedas[j]})")
+                ganancia_mateo += monedas[j]
+                j -= 1
+
+    return decisiones, opt[0][n-1], ganancia_mateo
 
 n = 500
 repeticiones = 15
@@ -63,22 +127,24 @@ datasets = {
     "Decrecientes": list(range(n, 0, -1)),
 }
 
-tiempos = {}
-
 for monedas in datasets.values():
-    programacion_dinamica(monedas)
+    resolver(monedas)
 
-for nombre, monedas in datasets.items():
-    mediciones = []
+nombres = list(datasets.keys())
+mediciones = {nombre: [] for nombre in nombres}
 
-    for _ in range(repeticiones):
+for _ in range(repeticiones):
+    orden = nombres[:]
+    random.shuffle(orden)
+
+    for nombre in orden:
         inicio = time.perf_counter()
-        programacion_dinamica(monedas)
+        resolver(datasets[nombre])
         fin = time.perf_counter()
 
-        mediciones.append(fin - inicio)
+        mediciones[nombre].append(fin - inicio)
 
-    tiempos[nombre] = statistics.median(mediciones)
+    tiempos = {nombre:statistics.median(m) for nombre, m in mediciones.items()}
 
 for nombre, tiempo in tiempos.items():
     print(f"{nombre}: {tiempo:.6f} segundos")
@@ -93,4 +159,5 @@ plt.xlabel("Tipo de secuencia")
 plt.ylabel("Tiempo de ejecución (segundos)")
 plt.xticks(rotation=20)
 plt.tight_layout()
+plt.savefig("grafico_variabilidad.jpeg", dpi=200)
 plt.show()
