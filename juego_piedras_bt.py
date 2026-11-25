@@ -162,7 +162,7 @@ def leer_tablero(ruta):
 
 def main():
     if len(sys.argv) != 2:
-        print("Se usa asi: python3 tp3bt.py ruta/a/entrada.txt")
+        print("Se usa asi: python3 tp3.py ruta/a/entrada.txt")
         return
 
     ruta = sys.argv[1]
